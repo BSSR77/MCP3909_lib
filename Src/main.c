@@ -46,7 +46,7 @@
 #include "cmsis_os.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "../../CAN_ID.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -63,13 +63,7 @@ DMA_HandleTypeDef hdma_usart2_tx;
 WWDG_HandleTypeDef hwwdg;
 
 osThreadId ApplicationHandle;
-osThreadId Can_ProcessorHandle;
-osMessageQId mainCanTxQHandle;
-osMessageQId mainCanRxQHandle;
-osMessageQId MysteryQHandle;
-osTimerId WWDGTmrHandle;
 osTimerId HBTmrHandle;
-osMutexId swMtxHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -86,8 +80,6 @@ static void MX_USART2_UART_Init(void);
 static void MX_WWDG_Init(void);
 static void MX_SPI1_Init(void);
 void doApplication(void const * argument);
-void doProcessCan(void const * argument);
-void TmrKickDog(void const * argument);
 void TmrSendHB(void const * argument);
 
 /* USER CODE BEGIN PFP */
@@ -126,11 +118,6 @@ int main(void)
 
   /* USER CODE END 2 */
 
-  /* Create the mutex(es) */
-  /* definition and creation of swMtx */
-  osMutexDef(swMtx);
-  swMtxHandle = osMutexCreate(osMutex(swMtx));
-
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
@@ -140,10 +127,6 @@ int main(void)
   /* USER CODE END RTOS_SEMAPHORES */
 
   /* Create the timer(s) */
-  /* definition and creation of WWDGTmr */
-  osTimerDef(WWDGTmr, TmrKickDog);
-  WWDGTmrHandle = osTimerCreate(osTimer(WWDGTmr), osTimerPeriodic, NULL);
-
   /* definition and creation of HBTmr */
   osTimerDef(HBTmr, TmrSendHB);
   HBTmrHandle = osTimerCreate(osTimer(HBTmr), osTimerPeriodic, NULL);
@@ -157,26 +140,9 @@ int main(void)
   osThreadDef(Application, doApplication, osPriorityNormal, 0, 512);
   ApplicationHandle = osThreadCreate(osThread(Application), NULL);
 
-  /* definition and creation of Can_Processor */
-  osThreadDef(Can_Processor, doProcessCan, osPriorityBelowNormal, 0, 512);
-  Can_ProcessorHandle = osThreadCreate(osThread(Can_Processor), NULL);
-
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
-
-  /* Create the queue(s) */
-  /* definition and creation of mainCanTxQ */
-  osMessageQDef(mainCanTxQ, 16, Can_frame_t);
-  mainCanTxQHandle = osMessageCreate(osMessageQ(mainCanTxQ), NULL);
-
-  /* definition and creation of mainCanRxQ */
-  osMessageQDef(mainCanRxQ, 16, Can_frame_t);
-  mainCanRxQHandle = osMessageCreate(osMessageQ(mainCanRxQ), NULL);
-
-  /* definition and creation of MysteryQ */
-  osMessageQDef(MysteryQ, 16, Can_frame_t);
-  MysteryQHandle = osMessageCreate(osMessageQ(MysteryQ), NULL);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -444,31 +410,14 @@ void doApplication(void const * argument)
   /* USER CODE END 5 */ 
 }
 
-/* doProcessCan function */
-void doProcessCan(void const * argument)
-{
-  /* USER CODE BEGIN doProcessCan */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END doProcessCan */
-}
-
-/* TmrKickDog function */
-void TmrKickDog(void const * argument)
-{
-  /* USER CODE BEGIN TmrKickDog */
-  
-  /* USER CODE END TmrKickDog */
-}
-
 /* TmrSendHB function */
 void TmrSendHB(void const * argument)
 {
   /* USER CODE BEGIN TmrSendHB */
-  
+  taskENTER_CRITICAL();
+  HAL_WWDG_Refresh(&hwwdg);
+  taskEXIT_CRITICAL();
+
   /* USER CODE END TmrSendHB */
 }
 
