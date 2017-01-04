@@ -205,8 +205,8 @@ uint8_t mcp3909_init(MCP3909HandleTypeDef * hmcp){
   	  return pdFALSE;
   }
 
-  // TODO: Delay 50us
-
+  // Delay for power on reset completion
+  delayUs(T_POR);
 
   return mcp3909_verify(hmcp);
 }
@@ -247,8 +247,8 @@ uint8_t mcp3909_sleep(MCP3909HandleTypeDef * hmcp){
 	(hmcp->pTxBuf)[2] = ((hmcp->registers[CONFIG]) >> 8)  & 0xFF;
 	(hmcp->pTxBuf)[1] = ((hmcp->registers[CONFIG]) >> 16) & 0xFF;
 
-	// TODO: Disable GPIO DR Interrupt
-
+	// Disable GPIO DR Interrupt
+	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
 	// Write a single register configuration
 	return _mcp3909_SPI_WriteReg(hmcp, CONFIG);
 }
@@ -270,10 +270,11 @@ uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp){
 	(hmcp->pTxBuf)[1] = ((hmcp->registers[CONFIG]) >> 16) & 0xFF;
 
 	if(_mcp3909_SPI_WriteReg(hmcp, CONFIG)){
-		// TODO: Delay 50us power on reset time
+		// Delay power on reset time
+		delayUS(T_POR);
 
-		// TODO: Enable GPIO DR Interrupt
-
+		// Enable GPIO DR Interrupt
+		HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 		return pdTRUE;
 	}
 	return pdFALSE;

@@ -14,6 +14,7 @@
 // Tx and Rx buffers must both be declared and allocated globally before the functions
 
 #define SPI_TIMEOUT		1000 	// SPI Synchronous blocking timeout - milliseconds
+#define T_POR			50		// Power on reset wait time
 
 // Register Addresses
 #define CHANNEL_0   (0x0U)
