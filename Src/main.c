@@ -68,7 +68,7 @@ osTimerId HBTmrHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+MCP3909HandleTypeDef hmcp1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,6 +89,7 @@ void TmrSendHB(void const * argument);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
 
 /* USER CODE END 0 */
 
@@ -116,7 +117,7 @@ int main(void)
   MX_SPI1_Init();
 
   /* USER CODE BEGIN 2 */
-
+  mcp3909_init(&hmcp1);
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */

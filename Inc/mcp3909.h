@@ -13,6 +13,8 @@
 // NOTE: the Tx Buffer should always have the first byte empty for the CONTROL BYTE!
 // Tx and Rx buffers must both be declared and allocated globally before the functions
 
+#define SPI_TIMEOUT		1000 	// SPI Synchronous blocking timeout - milliseconds
+
 // Register Addresses
 #define CHANNEL_0   (0x0U)
 #define CHANNEL_1   (0x1U)
@@ -30,7 +32,7 @@
 // Channel data length
 #define MAX_CHANNEL_NUM   (6U)
 #define MAX_CHN_SET_NUM   (3U)
-#define REGS_NUM		  (10U)
+#define REGS_NUM		  (11U)
 #define REG_LEN           (3U)
 #define CTRL_LEN		  (1U)
 #define CHN_GROUP_LEN     (2U) * REG_LEN
@@ -51,7 +53,7 @@
 #define PGA_32      (5U)
 
 #define BOOST_OFFSET     (3U)
-#define PGA_BOOST_OFFSET (5U)
+#define PGA_BOOST_LEN    (5U)
 
 // Boost settings
 #define BOOST_ON    (1U)
@@ -95,7 +97,7 @@
 #define DR_LINK_OFFSET    (12U)
 #define DR_HIZ_OFFSET     (13U)
 #define DR_LTY_OFFSET     (14U)
-#define CHN_RES_OFFSET    (15U)
+#define RES_CHN_OFFSET    (15U)
 #define READ_MODE_OFFSET  (22U)
 // STATUS REGISTER END    -----------------------------
 
@@ -158,8 +160,8 @@ typedef struct {
 // MCP3909 Handle
 typedef struct {
   SPI_HandleTypeDef *	hspi;	// SPI Handle object
-  uint8_t * volatile    pRxBuf;     // Rx Buffer
-  uint8_t * volatile    pTxBuf;     // Tx Buffer
+  uint8_t * volatile    pRxBuf;     // DMA Rx Buffer
+  uint8_t * volatile    pTxBuf;     // DMA Tx Buffer ; User functions may use this buffer for transmission staging
   uint8_t		readType;		// Read single, type, group, all registers
   uint8_t       prescale;
   uint8_t       osr;
@@ -171,8 +173,13 @@ typedef struct {
 } MCP3909HandleTypeDef;
 
 // Internal Utility functions (All in DMA)
+// USE AFTER SCHEDULER STARTS
 uint8_t _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address);   // Send data that's stored in pTxBuf
 uint8_t _mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t readType, uint8_t address);    // Read data into default pRxBuf
+
+// DO NOT USE AFTER RTOS SCHEDULER STARTS!!!!!!!!!
+uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * data, uint8_t length, uint32_t timeout);
+uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readType, uint32_t timeout);
 
 // User library functions
 // SPI Utility functions
@@ -185,13 +192,16 @@ uint8_t mcp3909_SPI_ReadAll(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_
 // Initialization
 uint8_t mcp3909_init(MCP3909HandleTypeDef * hmcp);
 
+// Setting verification
+uint8_t mcp3909_verify(MCP3909HandleTypeDef * hmcp);
+
 // Enter low-power mode
 uint8_t mcp3909_sleep(MCP3909HandleTypeDef * hmcp);
 
 // Exit low-power mode
 uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp);
 
-// Obtain channle info
+// Obtain channel info
 uint8_t mcp3909_readAllChannels(MCP3909HandleTypeDef * hmcp, uint8_t * buffer);
 uint8_t mcp3909_readChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelNum, uint8_t * buffer);
 
