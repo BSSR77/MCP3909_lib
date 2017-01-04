@@ -158,9 +158,9 @@ typedef struct {
 // MCP3909 Handle
 typedef struct {
   SPI_HandleTypeDef *	hspi;	// SPI Handle object
-  uint8_t *     pRxBuf;     // Rx Buffer
-  uint8_t *     pTxBuf;     // Tx Buffer
-  uint8_t		    readType;		// Read single, type, group, all registers
+  uint8_t * volatile    pRxBuf;     // Rx Buffer
+  uint8_t * volatile    pTxBuf;     // Tx Buffer
+  uint8_t		readType;		// Read single, type, group, all registers
   uint8_t       prescale;
   uint8_t       osr;
   uint8_t       extCLK;
