@@ -13,6 +13,8 @@
 // NOTE: the Tx Buffer should always have the first byte empty for the CONTROL BYTE!
 // Tx and Rx buffers must both be declared and allocated globally before the functions
 
+// States: INIT, SHUTDOWN
+
 // Register Addresses
 #define CHANNEL_0   0x00
 #define CHANNEL_1   0x01
@@ -20,11 +22,13 @@
 #define CHANNEL_3   0x03
 #define CHANNEL_4   0x04
 #define Channle_5   0x05
-#define MOD         0x06
-#define PHASE       0x07
-#define GAIN        0x08
+#define MOD         0x06U
+#define PHASE       0x07U
+#define GAIN        0x08U
 #define STATUS      0x09
 #define CONFIG      0x0A
+
+#define SPI_TIMEOUT	100
 
 // Programmable gain amplifier ratio
 typedef enum {
@@ -83,10 +87,17 @@ typedef enum {
 #define READ_TYPE     2    // Read a register type
 #define REAL_ALL      3    // Read all onboard registers
 
+#define REG_LEN		  3	   // Register data length
+
+// Register read lengths
+#define READ_SINGLE_LEN			3
+#define READ_STATUS_GROUP_LEN	6
+#define READ_CHN_GROUP_LEN		6
+#define READ_MOD_GROUP_LEN		9
+#define READ_TYPE_LEN			18
+#define READ_ALL_LEN			33
+
 #define MAX_CHANNELS  6    // 6 ADC Channels on MCP3909
-#define STATE_INIT    0    // Chip uninitialized
-#define STATE_ON      1    // Chip state on  (active conversion mode)
-#define STATE_OFF     2    // Chip state off (low-power sleep)
 
 typedef struct {
   uint8_t   channel;      // Channel number
@@ -100,13 +111,13 @@ typedef struct {
 
 typedef struct {
   SPI_HandleTypeDef *	hspi;	// SPI Handle object
+  uint8_t		readType;		// Read single, type, group, all registers
   prescale_CONF prescale;
   OSR_CONF      osr;
   uint8_t       extCLK;
   uint8_t       extVREF;
   channel_Conf  channel[6];
   uint8_t *		phase;
-  uint8_t       state;
   uint8_t *     pRxBuf;     // Rx Buffer
   uint8_t *     pTxBuf;     // Tx Buffer
 } MCP3909HandleTypeDef;
@@ -121,19 +132,17 @@ uint8_t mcp3909_init(SPI_HandleTypeDef * hspi, MCP3909HandleTypeDef * hmcp);
 uint8_t mcp3909_verify(MCP3909HandleTypeDef * hmcp);
 
 // Put all channels into shutdown mode, vref=clk=1;
-uint8_t mcp3909_shutdown(MCP3909HandleTypeDef * hmcp);
-
-// Enable all the defined channels and set vref=clk=0
-uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp);
+uint8_t mcp3909_shutdown_all_channels(MCP3909HandleTypeDef * hmcp);
 
 // SPI Utilities
-uint8_t mcp3909_SPI_Write(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t length);
+uint8_t mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t length);
 
-uint8_t mcp3909_SPI_WriteDMA();
+uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t length, uint8_t readType);
 
-uint8_t mcp3909_SPI_read();
+uint8_t mcp3909_channel_dataRead(MCP3909HandleTypeDef * hmcp, uint8_t channelNum);
 
-uint8_t mcp3909_SPI_readDMA();
+uint32_t readChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelNum, uint32_t buf);
 
+uint8_t readChannelPair(MCP3909HandleTypeDef * hmcp, uint8_t channelGroup, uint32_t * buf);
 
 #endif /* MCP3909_H_ */
