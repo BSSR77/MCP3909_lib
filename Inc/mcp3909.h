@@ -167,7 +167,7 @@ typedef struct {
   uint8_t       extVREF;
   uint8_t       phase[MAX_CHN_SET_NUM];
   Channel_Conf  channel[MAX_CHANNEL_NUM];
-  uint32_t		registers[REGS_NUM - MAX_CHANNEL_NUM];
+  uint32_t		registers[REGS_NUM];
 } MCP3909HandleTypeDef;
 
 // Internal Utility functions (All in DMA)
@@ -192,8 +192,10 @@ uint8_t mcp3909_sleep(MCP3909HandleTypeDef * hmcp);
 uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp);
 
 // Obtain channle info
-uint8_t mcp3909_readAllChannels(MCP3909HandleTypeDef * hmcp, uint32_t * buffer);
-uint8_t mcp3909_readAllChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelNum, uint32_t * buffer);
+uint8_t mcp3909_readAllChannels(MCP3909HandleTypeDef * hmcp, uint8_t * buffer);
+uint8_t mcp3909_readChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelNum, uint8_t * buffer);
 
+uint32_t bytesToReg(uint8_t * byte);
+void regToBytes(uint32_t * reg, uint8_t * bytes);
 
 #endif /* MCP3909_H_ */

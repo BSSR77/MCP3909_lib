@@ -9,11 +9,11 @@
 #include "freertos.h"
 
 // Internal Utility functions (All in DMA)
-uint8_t inline _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address) {
+inline uint8_t _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address) {
 	return mcp3909_SPI_WriteReg(hmcp, address, hmcp->pTxBuf, REG_LEN + CTRL_LEN);
 }
 
-uint8_t inline _mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t readType, uint8_t address){
+inline uint8_t _mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t readType, uint8_t address){
 	return mcp3909_SPI_ReadReg(hmcp, address, hmcp->pRxBuf, readType);
 }
 
@@ -47,7 +47,7 @@ uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_
 
 	if(hmcp->readType != readType){
 		hmcp->readType = readType;	// Update Handle status
-		MODIFY_REG(hmcp->registers[STATUS - MAX_CHANNEL_NUM], (0b11 << READ_MODE_OFFSET), readType << READ_MODE_OFFSET);	// Update register data
+		MODIFY_REG(hmcp->registers[STATUS], (0b11 << READ_MODE_OFFSET), readType << READ_MODE_OFFSET);	// Update register data
 
 		// Assemble CONTROL BYTE to write STATUS register
 		// | 0 | 1 | STATUS | W |
@@ -55,9 +55,9 @@ uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_
 		(hmcp->pTxBuf)[0] = 0x52;
 
 		// uint32_t to uint8_t array
-		(hmcp->pTxBuf)[3] = (hmcp->registers[STATUS - MAX_CHANNEL_NUM]) & 0xFF;
-		(hmcp->pTxBuf)[2] = ((hmcp->registers[STATUS - MAX_CHANNEL_NUM]) >> 8)  & 0xFF;
-		(hmcp->pTxBuf)[1] = ((hmcp->registers[STATUS - MAX_CHANNEL_NUM]) >> 16) & 0xFF;
+		(hmcp->pTxBuf)[3] = (hmcp->registers[STATUS]) & 0xFF;
+		(hmcp->pTxBuf)[2] = ((hmcp->registers[STATUS]) >> 8)  & 0xFF;
+		(hmcp->pTxBuf)[1] = ((hmcp->registers[STATUS]) >> 16) & 0xFF;
 
 		if(_mcp3909_SPI_WriteReg(hmcp, STATUS) != pdTRUE){
 			return pdFALSE;
@@ -77,15 +77,15 @@ uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_
 	}
 }
 
-uint8_t inline mcp3909_SPI_ReadGroup(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
+inline uint8_t mcp3909_SPI_ReadGroup(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
 	return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_GROUP);
 }
 
-uint8_t inline mcp3909_SPI_ReadType(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
+inline uint8_t mcp3909_SPI_ReadType(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
 	return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_TYPE);
 }
 
-uint8_t inline mcp3909_SPI_ReadAll(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
+inline uint8_t mcp3909_SPI_ReadAll(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
 	return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_ALL);
 }
 
@@ -98,20 +98,20 @@ uint8_t mcp3909_init(MCP3909HandleTypeDef * hmcp){
 uint8_t mcp3909_sleep(MCP3909HandleTypeDef * hmcp){
 	// Update Handle object
 	for(uint8_t i = 0 ; i < MAX_CHANNEL_NUM; i++){
-		hmcp->channel[i]->shutdown = SHUTDOWN_ON;
-		hmcp->channel[i]->reset = RESET_ON;
+		hmcp->channel[i].shutdown = SHUTDOWN_ON;
+		hmcp->channel[i].reset = RESET_ON;
 	}
 
 	// Assemble register data
-	hmcp->registers[CONFIG - MAX_CHANNEL_NUM] |= (0x1F << SHUTDOWN_CHN_OFFSET);
-	hmcp->registers[CONFIG - MAX_CHANNEL_NUM] |= (0x1F << RESET_CHN_OFFSET);
+	hmcp->registers[CONFIG] |= (0x1F << SHUTDOWN_CHN_OFFSET);
+	hmcp->registers[CONFIG] |= (0x1F << RESET_CHN_OFFSET);
 
 	// Load CONFIG register data to SPI Tx buffer
-	(hmcp->pTxBuf)[3] = (hmcp->registers[CONFIG - MAX_CHANNEL_NUM]) & 0xFF;
-	(hmcp->pTxBuf)[2] = ((hmcp->registers[CONFIG - MAX_CHANNEL_NUM]) >> 8)  & 0xFF;
-	(hmcp->pTxBuf)[1] = ((hmcp->registers[CONFIG - MAX_CHANNEL_NUM]) >> 16) & 0xFF;
+	(hmcp->pTxBuf)[3] = (hmcp->registers[CONFIG]) & 0xFF;
+	(hmcp->pTxBuf)[2] = ((hmcp->registers[CONFIG]) >> 8)  & 0xFF;
+	(hmcp->pTxBuf)[1] = ((hmcp->registers[CONFIG]) >> 16) & 0xFF;
 
-	// Disable GPIO DR Interrupt
+	// TODO: Disable GPIO DR Interrupt
 
 	// Write a single register configuration
 	return _mcp3909_SPI_WriteReg(hmcp, CONFIG);
@@ -121,17 +121,17 @@ uint8_t mcp3909_sleep(MCP3909HandleTypeDef * hmcp){
 uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp){
 	// Update Handle object
 	for(uint8_t i = 0 ; i < MAX_CHANNEL_NUM; i++){
-		hmcp->channel[i]->shutdown = SHUTDOWN_OFF;
-		hmcp->channel[i]->reset = RESET_OFF;
+		hmcp->channel[i].shutdown = SHUTDOWN_OFF;
+		hmcp->channel[i].reset = RESET_OFF;
 	}
 
 	// Assemble register data
-	hmcp->registers[CONFIG - MAX_CHANNEL_NUM] |= 0x0FFF;
+	hmcp->registers[CONFIG] |= 0x0FFF;
 
 	// Load CONFIG register data to SPI Tx buffer
-	(hmcp->pTxBuf)[3] = (hmcp->registers[CONFIG - MAX_CHANNEL_NUM]) & 0xFF;
-	(hmcp->pTxBuf)[2] = ((hmcp->registers[CONFIG - MAX_CHANNEL_NUM]) >> 8)  & 0xFF;
-	(hmcp->pTxBuf)[1] = ((hmcp->registers[CONFIG - MAX_CHANNEL_NUM]) >> 16) & 0xFF;
+	(hmcp->pTxBuf)[3] = (hmcp->registers[CONFIG]) & 0xFF;
+	(hmcp->pTxBuf)[2] = ((hmcp->registers[CONFIG]) >> 8)  & 0xFF;
+	(hmcp->pTxBuf)[1] = ((hmcp->registers[CONFIG]) >> 16) & 0xFF;
 
 	if(_mcp3909_SPI_WriteReg(hmcp, CONFIG)){
 		// TODO: Delay 50us power on reset time
@@ -144,10 +144,23 @@ uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp){
 }
 
 // Obtain channel info
-uint8_t mcp3909_readAllChannels(MCP3909HandleTypeDef * hmcp, uint32_t * buffer){
-
+inline uint8_t  mcp3909_readAllChannels(MCP3909HandleTypeDef * hmcp, uint8_t * buffer){
+	return mcp3909_SPI_ReadType(hmcp, CHANNEL_0, buffer);
 }
 
-uint8_t mcp3909_readAllChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelNum, uint32_t * buffer){
+inline uint8_t mcp3909_readChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelNum, uint8_t * buffer){
+#ifdef DEBUG
+	assert_param(channelNum < MAX_CHANNEL_NUM);
+#endif
+	return mcp3909_SPI_ReadType(hmcp, channelNum, buffer);
+}
 
+inline uint32_t bytesToReg(uint8_t * byte){
+	return (byte[2] | (byte[1] << 8) | (byte[0] << 16));
+}
+
+inline void regToBytes(uint32_t * reg, uint8_t * bytes){
+	bytes[2] = (*reg) & 0xFF;
+	bytes[1] = ((*reg) >> 8)  & 0xFF;
+	bytes[0] = ((*reg) >> 16) & 0xFF;
 }
