@@ -30,6 +30,7 @@
 // Channel data length
 #define MAX_CHANNEL_NUM   (6U)
 #define MAX_CHN_SET_NUM   (3U)
+#define REGS_NUM		  (10U)
 #define REG_LEN           (3U)
 #define CTRL_LEN		  (1U)
 #define CHN_GROUP_LEN     (2U) * REG_LEN
@@ -147,7 +148,8 @@ typedef struct {
   uint8_t   channel;      // Channel number
   uint8_t 	readType;
   uint8_t   PGA;          // ADC gain setting
-  uint8_t   adcState;     // ADC operating mode selection
+  uint8_t   shutdown;     // ADC shutdown mode
+  uint8_t	reset;		  // ADC reset mode
   uint8_t   dither;       // ADC dither filter
   uint8_t   resolution;   // ADC resolution
   uint8_t   boost;        // ADC boost mode
@@ -165,17 +167,19 @@ typedef struct {
   uint8_t       extVREF;
   uint8_t       phase[MAX_CHN_SET_NUM];
   Channel_Conf  channel[MAX_CHANNEL_NUM];
+  uint32_t		registers[REGS_NUM - MAX_CHANNEL_NUM];
 } MCP3909HandleTypeDef;
 
 // Internal Utility functions (All in DMA)
 uint8_t _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address);   // Send data that's stored in pTxBuf
-uint8_t _mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t readType);    // Read data into default pRxBuf
+uint8_t _mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t readType, uint8_t address);    // Read data into default pRxBuf
 
 // User library functions
 // SPI Utility functions
-uint8_t mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * data); // Copies data into pTxBuf
-uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer);  // Read data into user-defined buffer address
+uint8_t mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * data, uint8_t length); // Copies data into pTxBuf
+uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readType);  // Read data into user-defined buffer address
 uint8_t mcp3909_SPI_ReadGroup(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer);  // Read data into user-defined buffer address
+uint8_t mcp3909_SPI_ReadType(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer);
 uint8_t mcp3909_SPI_ReadAll(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer);  // Read data into user-defined buffer address
 
 // Initialization
