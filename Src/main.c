@@ -65,6 +65,8 @@ WWDG_HandleTypeDef hwwdg;
 
 osThreadId ApplicationHandle;
 osTimerId HBTmrHandle;
+osSemaphoreId mcp3909_DRHandle;
+osSemaphoreId mcp3909_RXHandle;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -89,8 +91,18 @@ void TmrSendHB(void const * argument);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+// Data Ready pin triggered callback (PA1)
+void HAL_GPIO_EXTI_Callback(uint16_t pinNum){
+	xSemaphoreGiveFromISR(mcp3909_DRHandle, NULL);
+}
 
-
+// SPI DMA read channels complete callback
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
+	// Check which SPI issued interrupt
+	if(hspi == (hmcp1.hspi)){
+		xSemaphoreGiveFromISR(mcp3909_RXHandle, NULL);
+	}
+}
 /* USER CODE END 0 */
 
 int main(void)
@@ -123,6 +135,15 @@ int main(void)
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
+
+  /* Create the semaphores(s) */
+  /* definition and creation of mcp3909_DR */
+  osSemaphoreDef(mcp3909_DR);
+  mcp3909_DRHandle = osSemaphoreCreate(osSemaphore(mcp3909_DR), 1);
+
+  /* definition and creation of mcp3909_RX */
+  osSemaphoreDef(mcp3909_RX);
+  mcp3909_RXHandle = osSemaphoreCreate(osSemaphore(mcp3909_RX), 1);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -319,7 +340,6 @@ static void MX_WWDG_Init(void)
     Error_Handler();
   }
 
-
 }
 
 /** 
@@ -332,16 +352,16 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   /* DMA1_Channel3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
   /* DMA1_Channel6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
   /* DMA1_Channel7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 6, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
 
 }
@@ -372,13 +392,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA0 PA1 PA3 PA4 
-                           PA8 PA9 PA10 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_3|GPIO_PIN_4 
-                          |GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10;
+  /*Configure GPIO pins : PA0 PA3 PA4 PA8 
+                           PA9 PA10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_8 
+                          |GPIO_PIN_9|GPIO_PIN_10;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : GPIO_DR_Pin */
+  GPIO_InitStruct.Pin = GPIO_DR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIO_DR_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB1 PB3 PB4 PB5 
                            PB6 PB7 */
@@ -394,6 +420,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 6, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
@@ -405,10 +435,17 @@ void doApplication(void const * argument)
 {
 
   /* USER CODE BEGIN 5 */
+  uint32_t PreviousWakeTime = osKernelSysTick();
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	mcp3909_wakeup(&hmcp1);
+	xSemaphoreTake(mcp3909_DRHandle, portMAX_DELAY);
+	mcp3909_readAllChannels(&hmcp1,hmcp1.pRxBuf);
+	xSemaphoreTake(mcp3909_RXHandle, portMAX_DELAY);
+	mcp3909_parseChannelData(&hmcp1);
+	// XXX: Energy metering algorithm
+    osDelayUntil(&PreviousWakeTime, EM_Interval);
   }
   /* USER CODE END 5 */ 
 }

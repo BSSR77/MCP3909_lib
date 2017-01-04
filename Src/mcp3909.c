@@ -300,3 +300,9 @@ inline void regToBytes(uint32_t * reg, uint8_t * bytes){
 	bytes[1] = ((*reg) >> 8)  & 0xFF;
 	bytes[0] = ((*reg) >> 16) & 0xFF;
 }
+
+inline void mcp3909_parseChannelData(MCP3909HandleTypeDef * hmcp){
+	for(uint8_t i = CHANNEL_0; i < CHANNEL_0+MAX_CHANNEL_NUM; i++){
+		(hmcp->registers)[i] = bytesToReg((hmcp->pRxBuf) + REG_LEN * i);
+	}
+}
