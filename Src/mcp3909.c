@@ -33,6 +33,10 @@ uint8_t mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8
 	(hmcp->pTxBuf)[0] = 0x40;
 	(hmcp->pTxBuf)[0] |= address << 1;
 
+	(hmcp->pTxBuf)[1] = data[0];
+	(hmcp->pTxBuf)[2] = data[1];
+	(hmcp->pTxBuf)[3] = data[2];
+
 	// Use DMA to transmit data to SPI
 	if(HAL_SPI_Transmit_DMA(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN) == HAL_OK){
 		return pdTRUE;
@@ -92,6 +96,10 @@ uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, u
 	// | 0 | 1 | A4 | A3 | A2 | A1 | A0 | W |
 	(hmcp->pTxBuf)[0] = 0x40;
 	(hmcp->pTxBuf)[0] |= address << 1;
+
+	(hmcp->pTxBuf)[1] = data[0];
+	(hmcp->pTxBuf)[2] = data[1];
+	(hmcp->pTxBuf)[3] = data[2];
 
 	// Use DMA to transmit data to SPI
 	if(HAL_SPI_Transmit(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN, timeout) == HAL_OK){
