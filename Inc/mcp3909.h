@@ -161,8 +161,8 @@ typedef struct {
 // MCP3909 Handle
 typedef struct {
   SPI_HandleTypeDef *	hspi;	// SPI Handle object
-  uint8_t * volatile    pRxBuf;     // DMA Rx Buffer
-  uint8_t * volatile    pTxBuf;     // DMA Tx Buffer ; User functions may use this buffer for transmission staging
+  volatile uint8_t     pRxBuf[REG_LEN * REGS_NUM];     // DMA Rx Buffer
+  volatile uint8_t     pTxBuf[REG_LEN+CTRL_LEN];     // DMA Tx Buffer ; User functions may use this buffer for transmission staging
   uint8_t		readType;		// Read single, type, group, all registers
   uint8_t       prescale;
   uint8_t       osr;

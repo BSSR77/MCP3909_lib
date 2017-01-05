@@ -129,6 +129,7 @@ int main(void)
   MX_SPI1_Init();
 
   /* USER CODE BEGIN 2 */
+  hmcp1.hspi = &hspi1;
   mcp3909_init(&hmcp1);
   /* USER CODE END 2 */
 
