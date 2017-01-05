@@ -6,6 +6,7 @@
  */
 
 #include "mcp3909.h"
+#include "nodeHelpers.h"
 #include "freertos.h"
 
 // Internal Utility functions (All in DMA)
@@ -271,7 +272,7 @@ uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp){
 
 	if(_mcp3909_SPI_WriteReg(hmcp, CONFIG)){
 		// Delay power on reset time
-		delayUS(T_POR);
+		delayUs(T_POR);
 
 		// Enable GPIO DR Interrupt
 		HAL_NVIC_EnableIRQ(EXTI1_IRQn);
