@@ -72,7 +72,7 @@ osSemaphoreId mcp3909_RXHandle;
 /* Private variables ---------------------------------------------------------*/
 MCP3909HandleTypeDef hmcp1;
 uint8_t mcpRxBuf[REG_LEN * REGS_NUM];
-uint8_t mcpTxBuf[REG_LEN+CTRL_LEN];
+uint8_t mcpTxBuf[REG_LEN * REGS_NUM + CTRL_LEN];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -118,11 +118,13 @@ void EM_Init(){
 	hmcp1.pRxBuf = mcpRxBuf;
 	hmcp1.pTxBuf = mcpTxBuf;
 
+	HAL_NVIC_SetPriority(EXTI1_IRQn, 6, 0); // set DR pin interrupt priority
 	mcp3909_init(&hmcp1);
 }
 
 // Data Ready pin triggered callback (PA1)
 void HAL_GPIO_EXTI_Callback(uint16_t pinNum){
+
 	xSemaphoreGiveFromISR(mcp3909_DRHandle, NULL);
 }
 
@@ -328,7 +330,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 7;
   hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
     Error_Handler();
@@ -460,10 +462,6 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(MCP_CS_GPIO_Port, MCP_CS_Pin, GPIO_PIN_SET);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI1_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
 }
 

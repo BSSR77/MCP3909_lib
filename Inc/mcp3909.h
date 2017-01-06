@@ -178,7 +178,7 @@ uint8_t _mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t readType, uint
 
 // DO NOT USE AFTER RTOS SCHEDULER STARTS!!!!!!!!!
 uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * data, uint8_t length, uint32_t timeout);
-uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readType, uint32_t timeout);
+uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readLen, uint8_t readType, uint32_t timeout);
 
 // User library functions
 // SPI Utility functions

@@ -114,7 +114,7 @@ uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, u
 }
 
 // Synchronous blokcing TRx function - DO NOT USE IN RTOS AFTER SCHEDULER START UP
-uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readType, uint32_t timeout) {
+uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readLen, uint8_t readType, uint32_t timeout) {
 
 #ifdef DEBUG
 	assert_param(hmcp);
@@ -137,7 +137,7 @@ uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, ui
 		(hmcp->pTxBuf)[1] = ((hmcp->registers[STATUS]) >> 16) & 0xFF;
 
 		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
-		if(HAL_SPI_Transmit(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN, timeout) != HAL_OK){
+		if(HAL_SPI_Transmit(hmcp->hspi, hmcp->pTxBuf, readLen + CTRL_LEN, timeout) != HAL_OK){
 			HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 			return pdFALSE;
 		}
@@ -151,9 +151,14 @@ uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, ui
 	(hmcp->pTxBuf)[0] = 0x41;    // Read control frame (0b01000001)
 	(hmcp->pTxBuf)[0] |= address << 1;
 
+	// Empty the registers
+	(hmcp->pTxBuf)[1] = 0;
+	(hmcp->pTxBuf)[2] = 0;
+	(hmcp->pTxBuf)[3] = 0;
+
 	// Use synchronous blocking call to transmit and receive data from SPI
 	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
-	if(HAL_SPI_TransmitReceive(hmcp->hspi, hmcp->pTxBuf, buffer, CTRL_LEN, timeout) == HAL_OK){
+	if(HAL_SPI_TransmitReceive(hmcp->hspi, hmcp->pTxBuf, buffer, readLen + CTRL_LEN, timeout) == HAL_OK){
 		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 		return pdTRUE;
 	} else {
@@ -241,7 +246,7 @@ uint8_t mcp3909_init(MCP3909HandleTypeDef * hmcp){
 // Returns 1 if verificaiton success
 // Returns 0 if verification failed or error
 uint8_t mcp3909_verify(MCP3909HandleTypeDef * hmcp){
-	if(mcp3909_SPI_ReadRegSync(hmcp, MOD, (hmcp->pRxBuf), READ_TYPE, SPI_TIMEOUT) != pdTRUE){
+	if(mcp3909_SPI_ReadRegSync(hmcp, MOD, (hmcp->pRxBuf), CONFIG_TYPE_LEN, READ_TYPE, SPI_TIMEOUT) != pdTRUE){
 		return pdFALSE;
 	}
 	uint32_t tempRegister = 0;
