@@ -208,7 +208,7 @@ uint8_t mcp3909_readChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelNum, uin
 // Parse the data in the DMA Rx buffer and store to MCP Handle registers
 void mcp3909_parseChannelData(MCP3909HandleTypeDef * hmcp);
 
-uint32_t bytesToReg(uint8_t * byte);
+void bytesToReg(uint8_t * byte, uint32_t * reg);
 void regToBytes(uint32_t * reg, uint8_t * bytes);
 
 #endif /* MCP3909_H_ */

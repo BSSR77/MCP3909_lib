@@ -161,8 +161,8 @@ int main(void)
   MX_SPI1_Init();
 
   /* USER CODE BEGIN 2 */
-  HAL_WWDG_Refresh(&hwwdg);
   EM_Init();
+  HAL_WWDG_Refresh(&hwwdg);
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */

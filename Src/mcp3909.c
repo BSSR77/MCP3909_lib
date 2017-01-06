@@ -8,6 +8,8 @@
 #include "mcp3909.h"
 #include "nodeHelpers.h"
 #include "freertos.h"
+#include "stm32l4xx_hal_spi.h"
+
 
 // Internal Utility functions (All in DMA)
 inline uint8_t _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address) {
@@ -105,7 +107,6 @@ uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, u
 	// Use DMA to transmit data to SPI
 	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
 	if(HAL_SPI_Transmit(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN, timeout) == HAL_OK){
-		uint32_t garbage = hmcp->hspi->Instance->DR;	// Flush the stale RxFIFO as a result of Transmit
 		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 		return pdTRUE;
 	} else {
@@ -145,8 +146,6 @@ uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, ui
 		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 	}
 
-	delayUs(1);
-
 	// Modify CONTROL BYTE
 	// | 0 | 1 | A4 | A3 | A2 | A1 | R |
 	(hmcp->pTxBuf)[0] = 0x41;    // Read control frame (0b01000001)
@@ -157,6 +156,9 @@ uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, ui
 	(hmcp->pTxBuf)[2] = 0;
 	(hmcp->pTxBuf)[3] = 0;
 
+	while(__HAL_SPI_GET_FLAG(hmcp->hspi, SPI_FLAG_RXNE)){
+		uint32_t garbage = hmcp->hspi->Instance->DR;	// Flush the stale RxFIFO as a result of Transmit
+	}
 	// Use synchronous blocking call to transmit and receive data from SPI
 	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
 	if(HAL_SPI_TransmitReceive(hmcp->hspi, hmcp->pTxBuf, buffer, readLen + CTRL_LEN, timeout) == HAL_OK){
@@ -198,7 +200,7 @@ uint8_t mcp3909_init(MCP3909HandleTypeDef * hmcp){
 
   // Channel pair phase delays
   // Set phase registers
-  hmcp->registers[PHASE] = bytesToReg(hmcp->phase);
+  bytesToReg(hmcp->phase, (hmcp->registers+PHASE));
 
   // Channel specific settings:
   for(uint8_t i = 0; i < MAX_CHANNEL_NUM; i++){
@@ -239,7 +241,6 @@ uint8_t mcp3909_init(MCP3909HandleTypeDef * hmcp){
 
   // Delay for power on reset completion
   delayUs(T_POR);
-
   return mcp3909_verify(hmcp);
 }
 
@@ -251,9 +252,12 @@ uint8_t mcp3909_verify(MCP3909HandleTypeDef * hmcp){
 		return pdFALSE;
 	}
 	uint32_t tempRegister = 0;
-	for(uint8_t i = MAX_CHANNEL_NUM + 1; i < REGS_NUM; i++){
+	for(uint8_t i = PHASE; i < REGS_NUM; i++){
 		// Ignore the MOD register output values
-		tempRegister = bytesToReg((hmcp->pRxBuf) + (i - MAX_CHANNEL_NUM) * REG_LEN);	// Assemble the bytes into register data
+		bytesToReg((hmcp->pRxBuf) + (i - PHASE + 1) * REG_LEN + CTRL_LEN, &tempRegister);	// Assemble the bytes into register data
+		if(i == STATUS){
+			tempRegister &= ~(0x3F);
+		}
 		if((hmcp->registers)[i] != tempRegister){
 			return pdFALSE;
 		}
@@ -324,8 +328,8 @@ inline uint8_t mcp3909_readChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelN
 	return mcp3909_SPI_ReadType(hmcp, channelNum, buffer);
 }
 
-inline uint32_t bytesToReg(uint8_t * byte){
-	return (byte[2] | (byte[1] << 8) | (byte[0] << 16));
+inline void bytesToReg(uint8_t * byte, uint32_t * reg){
+	*reg =  (byte[2] | (byte[1] << 8) | (byte[0] << 16));
 }
 
 inline void regToBytes(uint32_t * reg, uint8_t * bytes){
@@ -336,7 +340,7 @@ inline void regToBytes(uint32_t * reg, uint8_t * bytes){
 
 inline void mcp3909_parseChannelData(MCP3909HandleTypeDef * hmcp){
 	for(uint8_t i = CHANNEL_0; i < CHANNEL_0+MAX_CHANNEL_NUM; i++){
-		(hmcp->registers)[i] = bytesToReg((hmcp->pRxBuf) + REG_LEN * i);
+		bytesToReg((hmcp->pRxBuf) + REG_LEN * i,((hmcp->registers) + i ));
 	}
 }
 
