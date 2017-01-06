@@ -71,6 +71,8 @@ osSemaphoreId mcp3909_RXHandle;
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 MCP3909HandleTypeDef hmcp1;
+uint8_t mcpRxBuf[REG_LEN * REGS_NUM];
+uint8_t mcpTxBuf[REG_LEN+CTRL_LEN];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -87,10 +89,38 @@ void TmrSendHB(void const * argument);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-
+void EM_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+
+void EM_Init(){
+	hmcp1.phase[0] = 0;
+	hmcp1.phase[1] = 0;
+	hmcp1.phase[2] = 0;
+
+	for(uint8_t i= 0; i < MAX_CHANNEL_NUM; i++){
+		hmcp1.channel[i].PGA = PGA_1;
+		hmcp1.channel[i].boost = BOOST_OFF;
+		hmcp1.channel[i].dither = DITHER_ON;
+		hmcp1.channel[i].reset = RESET_OFF;
+		hmcp1.channel[i].shutdown = SHUTDOWN_OFF;
+		hmcp1.channel[i].resolution = RES_16;
+	}
+
+	hmcp1.extCLK = 0;
+	hmcp1.extVREF = 0;
+	hmcp1.hspi = &hspi1;
+	hmcp1.osr = OSR_256;
+	hmcp1.prescale = PRESCALE_1;
+	hmcp1.readType = READ_TYPE;
+
+	hmcp1.pRxBuf = mcpRxBuf;
+	hmcp1.pTxBuf = mcpTxBuf;
+
+	mcp3909_init(&hmcp1);
+}
+
 // Data Ready pin triggered callback (PA1)
 void HAL_GPIO_EXTI_Callback(uint16_t pinNum){
 	xSemaphoreGiveFromISR(mcp3909_DRHandle, NULL);
@@ -129,8 +159,8 @@ int main(void)
   MX_SPI1_Init();
 
   /* USER CODE BEGIN 2 */
-  hmcp1.hspi = &hspi1;
-  mcp3909_init(&hmcp1);
+  HAL_WWDG_Refresh(&hwwdg);
+  EM_Init();
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -291,14 +321,14 @@ static void MX_SPI1_Init(void)
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 7;
   hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
     Error_Handler();
@@ -393,10 +423,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA0 PA3 PA4 PA8 
-                           PA9 PA10 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_8 
-                          |GPIO_PIN_9|GPIO_PIN_10;
+  /*Configure GPIO pins : PA0 PA4 PA8 PA9 
+                           PA10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_4|GPIO_PIN_8|GPIO_PIN_9 
+                          |GPIO_PIN_10;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -407,10 +437,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIO_DR_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB1 PB3 PB4 PB5 
-                           PB6 PB7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5 
-                          |GPIO_PIN_6|GPIO_PIN_7;
+  /*Configure GPIO pin : MCP_CS_Pin */
+  GPIO_InitStruct.Pin = MCP_CS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(MCP_CS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB0 PB1 PB3 PB4 
+                           PB5 PB6 PB7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_3|GPIO_PIN_4 
+                          |GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -421,9 +458,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(MCP_CS_GPIO_Port, MCP_CS_Pin, GPIO_PIN_SET);
+
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI1_IRQn, 6, 0);
-  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+//  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
 
 }
 

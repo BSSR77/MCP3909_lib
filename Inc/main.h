@@ -65,6 +65,8 @@
 #define GPIO_DR_GPIO_Port GPIOA
 #define VCP_TX_Pin GPIO_PIN_2
 #define VCP_TX_GPIO_Port GPIOA
+#define MCP_CS_Pin GPIO_PIN_3
+#define MCP_CS_GPIO_Port GPIOA
 #define VCP_RX_Pin GPIO_PIN_15
 #define VCP_RX_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */

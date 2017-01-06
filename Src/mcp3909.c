@@ -87,6 +87,7 @@ uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_
 
 // Synchronous blocking Tx function - DO NOT USE IN RTOS AFTER SCHEDULER START UP
 uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * data, uint8_t length, uint32_t timeout){
+
 #ifdef DEBUG
 	assert_param(address <= CONFIG);		// Address check
 	assert_param(hmcp);						// Handle check
@@ -102,15 +103,19 @@ uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, u
 	(hmcp->pTxBuf)[3] = data[2];
 
 	// Use DMA to transmit data to SPI
+	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
 	if(HAL_SPI_Transmit(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN, timeout) == HAL_OK){
+		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 		return pdTRUE;
 	} else {
+		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 		return pdFALSE;
 	}
 }
 
 // Synchronous blokcing TRx function - DO NOT USE IN RTOS AFTER SCHEDULER START UP
 uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readType, uint32_t timeout) {
+
 #ifdef DEBUG
 	assert_param(hmcp);
 	assert_param(address <= CONFIG);
@@ -131,20 +136,28 @@ uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, ui
 		(hmcp->pTxBuf)[2] = ((hmcp->registers[STATUS]) >> 8)  & 0xFF;
 		(hmcp->pTxBuf)[1] = ((hmcp->registers[STATUS]) >> 16) & 0xFF;
 
-		if(mcp3909_SPI_WriteRegSync(hmcp, STATUS, hmcp->pTxBuf, REG_LEN + CTRL_LEN, timeout) != pdTRUE){
+		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
+		if(HAL_SPI_Transmit(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN, timeout) != HAL_OK){
+			HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 			return pdFALSE;
 		}
+		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 	}
+
+	delayUs(1);
 
 	// Modify CONTROL BYTE
 	// | 0 | 1 | A4 | A3 | A2 | A1 | R |
-	(hmcp->pTxBuf)[0] = 0x1;    // Read control frame (0b01000001)
+	(hmcp->pTxBuf)[0] = 0x41;    // Read control frame (0b01000001)
 	(hmcp->pTxBuf)[0] |= address << 1;
 
 	// Use synchronous blocking call to transmit and receive data from SPI
-	if(HAL_SPI_TransmitReceive(hmcp->hspi, hmcp->pTxBuf, buffer, REG_LEN + CTRL_LEN, timeout) == HAL_OK){
+	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
+	if(HAL_SPI_TransmitReceive(hmcp->hspi, hmcp->pTxBuf, buffer, CTRL_LEN, timeout) == HAL_OK){
+		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 		return pdTRUE;
 	} else {
+		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 		return pdFALSE;
 	}
 }
@@ -172,6 +185,10 @@ uint8_t mcp3909_init(MCP3909HandleTypeDef * hmcp){
 
   hmcp->registers[STATUS] |= (hmcp->readType) << READ_MODE_OFFSET;	// Read configuration to register type
   hmcp->registers[STATUS] |= DR_LTY_ON << DR_LTY_OFFSET;			// 3 Cycle latency to let sinc3 settle
+  hmcp->registers[STATUS] |= DR_LINK_ON << DR_LINK_OFFSET;			// Data ready pin output enable
+  hmcp->registers[STATUS] |= DR_MODE_0 << DRA_MODE_OFFSET;			// Most lagging data ready of channel 1/0
+  hmcp->registers[STATUS] |= DR_MODE_0 << DRB_MODE_OFFSET;			// Most lagging data ready of channel 3/2
+  hmcp->registers[STATUS] |= DR_MODE_0 << DRC_MODE_OFFSET;			// Most lagging data ready of channel 5/4
 
   // Channel pair phase delays
   // Set phase registers
@@ -316,3 +333,5 @@ inline void mcp3909_parseChannelData(MCP3909HandleTypeDef * hmcp){
 		(hmcp->registers)[i] = bytesToReg((hmcp->pRxBuf) + REG_LEN * i);
 	}
 }
+
+

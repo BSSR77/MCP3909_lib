@@ -148,8 +148,6 @@
 
 // MCP3909 individual channel configurations
 typedef struct {
-  uint8_t   channel;      // Channel number
-  uint8_t 	readType;
   uint8_t   PGA;          // ADC gain setting
   uint8_t   shutdown;     // ADC shutdown mode
   uint8_t	reset;		  // ADC reset mode
@@ -161,8 +159,8 @@ typedef struct {
 // MCP3909 Handle
 typedef struct {
   SPI_HandleTypeDef *	hspi;	// SPI Handle object
-  volatile uint8_t     pRxBuf[REG_LEN * REGS_NUM];     // DMA Rx Buffer
-  volatile uint8_t     pTxBuf[REG_LEN+CTRL_LEN];     // DMA Tx Buffer ; User functions may use this buffer for transmission staging
+  uint8_t       * volatile pRxBuf;     // DMA Rx Buffer
+  uint8_t       * volatile pTxBuf;     // DMA Tx Buffer ; User functions may use this buffer for transmission staging
   uint8_t		readType;		// Read single, type, group, all registers
   uint8_t       prescale;
   uint8_t       osr;
@@ -204,6 +202,7 @@ uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp);
 
 // Obtain channel info
 uint8_t mcp3909_readAllChannels(MCP3909HandleTypeDef * hmcp, uint8_t * buffer);
+
 uint8_t mcp3909_readChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelNum, uint8_t * buffer);
 
 // Parse the data in the DMA Rx buffer and store to MCP Handle registers
