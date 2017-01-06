@@ -105,6 +105,7 @@ uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, u
 	// Use DMA to transmit data to SPI
 	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
 	if(HAL_SPI_Transmit(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN, timeout) == HAL_OK){
+		uint32_t garbage = hmcp->hspi->Instance->DR;	// Flush the stale RxFIFO as a result of Transmit
 		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 		return pdTRUE;
 	} else {
