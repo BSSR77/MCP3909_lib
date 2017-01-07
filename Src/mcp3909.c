@@ -195,10 +195,10 @@ uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, ui
 
 inline uint8_t mcp3909_SPI_ReadGroup(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
 	if(address == MOD){
-		return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_GROUP, MOD_GROUP_LEN);
+		return mcp3909_SPI_ReadReg(hmcp, address, buffer, MOD_GROUP_LEN + CTRL_LEN, READ_GROUP);
 	}
 	else {
-		return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_GROUP, CHN_GROUP_LEN);
+		return mcp3909_SPI_ReadReg(hmcp, address, buffer, CHN_GROUP_LEN + CTRL_LEN, READ_GROUP);
 	}
 
 }
