@@ -124,7 +124,6 @@ void EM_Init(){
 
 // Data Ready pin triggered callback (PA1)
 void HAL_GPIO_EXTI_Callback(uint16_t pinNum){
-
 	xSemaphoreGiveFromISR(mcp3909_DRHandle, NULL);
 	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
 }
@@ -199,6 +198,7 @@ int main(void)
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
+  osTimerStart(HBTmrHandle, WD_Interval);
   /* USER CODE END RTOS_TIMERS */
 
   /* Create the thread(s) */
@@ -489,11 +489,17 @@ void doApplication(void const * argument)
   for(;;)
   {
 	mcp3909_wakeup(&hmcp1);
-	xSemaphoreTake(mcp3909_DRHandle, portMAX_DELAY);
+
+	// DR Pin level detection in case the interrupt is disabled during critical area
+	if((!xSemaphoreTake(mcp3909_DRHandle, 0)) && HAL_GPIO_ReadPin(GPIO_DR_GPIO_Port,GPIO_DR_Pin)){
+		xSemaphoreTake(mcp3909_DRHandle, portMAX_DELAY);
+	}
+
 	mcp3909_readAllChannels(&hmcp1,hmcp1.pRxBuf);
 	xSemaphoreTake(mcp3909_RXHandle, portMAX_DELAY);
 	mcp3909_parseChannelData(&hmcp1);
 	// XXX: Energy metering algorithm
+	mcp3909_sleep(&hmcp1);
     osDelayUntil(&PreviousWakeTime, EM_Interval);
   }
   /* USER CODE END 5 */ 

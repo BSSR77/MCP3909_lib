@@ -30,7 +30,6 @@ uint8_t mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8
 	(hmcp->pTxBuf)[3] = data[2];
 
 	// Use DMA to transmit data to SPI
-	// FIXME
 	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
 	if(HAL_SPI_Transmit_DMA(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN) == HAL_OK){
 		return pdTRUE;
@@ -53,6 +52,7 @@ uint8_t _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address){
 
 	// Use DMA to transmit data to SPI
 	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
+	while(!__HAL_SPI_GET_FLAG(hmcp->hspi, SPI_FLAG_TXE));	// Block till Tx to complete);
 	if(HAL_SPI_Transmit_DMA(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN) == HAL_OK){
 		return pdTRUE;
 	} else {
@@ -304,9 +304,8 @@ uint8_t mcp3909_sleep(MCP3909HandleTypeDef * hmcp){
 		hmcp->channel[i].reset = RESET_ON;
 	}
 
-	// Assemble register data
-	hmcp->registers[CONFIG] |= (0x1F << SHUTDOWN_CHN_OFFSET);
-	hmcp->registers[CONFIG] |= (0x1F << RESET_CHN_OFFSET);
+	// Assemble register data (All channels off, clock and voltage source external)
+	hmcp->registers[CONFIG] |= (0xFFF003);
 
 	// Load CONFIG register data to SPI Tx buffer
 	(hmcp->pTxBuf)[3] = (hmcp->registers[CONFIG]) & 0xFF;
@@ -326,7 +325,7 @@ uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp){
 	}
 
 	// Assemble register data
-	hmcp->registers[CONFIG] &= 0xFFF;
+	hmcp->registers[CONFIG] &= 0xFFC;	// Disable everything and reevert the clock and voltage source settings
 
 	// Load CONFIG register data to SPI Tx buffer
 	(hmcp->pTxBuf)[3] = (hmcp->registers[CONFIG]) & 0xFF;

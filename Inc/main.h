@@ -71,6 +71,7 @@
 #define VCP_RX_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 #define EM_Interval	 20	// Energy metering algorithm (ticks)
+#define WD_Interval  15	// Watchdog interval
 /* USER CODE END Private defines */
 
 /**

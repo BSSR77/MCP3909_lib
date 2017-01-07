@@ -12,7 +12,7 @@
 // Multiply by 20 for O2 and O3
 // Multiply by 16 for O0, O1, and Os
 #ifdef DEBUG
-#define delayUs(US) 	_delayUS_ASM(US * 12)
+#define delayUs(US) 	_delayUS_ASM(US * 16)
 #else
 #define delayUs(US) 	_delayUS_ASM(US * 20)
 #endif
