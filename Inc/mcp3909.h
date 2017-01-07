@@ -171,19 +171,18 @@ typedef struct {
   uint32_t		registers[REGS_NUM];
 } MCP3909HandleTypeDef;
 
-// Internal Utility functions (All in DMA)
-// USE AFTER SCHEDULER STARTS
-uint8_t _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address);   // Send data that's stored in pTxBuf
-uint8_t _mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t readType, uint8_t address);    // Read data into default pRxBuf
-
+// User library functions
 // DO NOT USE AFTER RTOS SCHEDULER STARTS!!!!!!!!!
 uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * data, uint8_t length, uint32_t timeout);
 uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readLen, uint8_t readType, uint32_t timeout);
 
-// User library functions
+
+// USE AFTER SCHEDULER STARTS
+uint8_t _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address);
+
 // SPI Utility functions
 uint8_t mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * data, uint8_t length); // Copies data into pTxBuf
-uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readType);  // Read data into user-defined buffer address
+uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readType, uint8_t length);  // Read data into user-defined buffer address
 uint8_t mcp3909_SPI_ReadGroup(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer);  // Read data into user-defined buffer address
 uint8_t mcp3909_SPI_ReadType(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer);
 uint8_t mcp3909_SPI_ReadAll(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer);  // Read data into user-defined buffer address

@@ -126,13 +126,23 @@ void EM_Init(){
 void HAL_GPIO_EXTI_Callback(uint16_t pinNum){
 
 	xSemaphoreGiveFromISR(mcp3909_DRHandle, NULL);
+	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
 }
 
 // SPI DMA read channels complete callback
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi){
 	// Check which SPI issued interrupt
 	if(hspi == (hmcp1.hspi)){
+		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 		xSemaphoreGiveFromISR(mcp3909_RXHandle, NULL);
+	}
+}
+
+// SPI DMA write reg complete callback
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi){
+	// Check which SPI issued interrupt
+	if(hspi == (hmcp1.hspi)){
+		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
 	}
 }
 /* USER CODE END 0 */

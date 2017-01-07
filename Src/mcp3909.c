@@ -7,18 +7,8 @@
 
 #include "mcp3909.h"
 #include "nodeHelpers.h"
-#include "freertos.h"
+#include "cmsis_os.h"
 #include "stm32l4xx_hal_spi.h"
-
-
-// Internal Utility functions (All in DMA)
-inline uint8_t _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address) {
-	return mcp3909_SPI_WriteReg(hmcp, address, hmcp->pTxBuf, REG_LEN + CTRL_LEN);
-}
-
-inline uint8_t _mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t readType, uint8_t address){
-	return mcp3909_SPI_ReadReg(hmcp, address, hmcp->pRxBuf, readType);
-}
 
 // User library functions
 // SPI Utility functions
@@ -40,6 +30,29 @@ uint8_t mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8
 	(hmcp->pTxBuf)[3] = data[2];
 
 	// Use DMA to transmit data to SPI
+	// FIXME
+	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
+	if(HAL_SPI_Transmit_DMA(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN) == HAL_OK){
+		return pdTRUE;
+	} else {
+		return pdFALSE;
+	}
+}
+
+// Write to register given data is loaded into the TxBuf
+uint8_t _mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address){
+#ifdef DEBUG
+	assert_param(address <= CONFIG);		// Address check
+	assert_param(hmcp);						// Handle check
+#endif
+
+	// Assemble CONTROL BYTE
+	// | 0 | 1 | A4 | A3 | A2 | A1 | A0 | W |
+	(hmcp->pTxBuf)[0] = 0x40;
+	(hmcp->pTxBuf)[0] |= address << 1;
+
+	// Use DMA to transmit data to SPI
+	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
 	if(HAL_SPI_Transmit_DMA(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN) == HAL_OK){
 		return pdTRUE;
 	} else {
@@ -48,7 +61,7 @@ uint8_t mcp3909_SPI_WriteReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8
 }
 
 // DMA TRx function
-uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readType) {
+uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer, uint8_t readLen, uint8_t readType) {
 #ifdef DEBUG
 	assert_param(hmcp);
 	assert_param(address <= CONFIG);
@@ -76,11 +89,21 @@ uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_
 
 	// Modify CONTROL BYTE
 	// | 0 | 1 | A4 | A3 | A2 | A1 | R |
-	(hmcp->pTxBuf)[0] = 0x1;    // Read control frame (0b01000001)
+	(hmcp->pTxBuf)[0] = 0x41;    // Read control frame (0b01000001)
 	(hmcp->pTxBuf)[0] |= address << 1;
 
+	// Clear the TxBuffer of any previous residues
+	for(uint8_t i = CTRL_LEN; i < readLen + CTRL_LEN;i++){
+		(hmcp->pTxBuf)[i] = 0;
+	}
+
+	while(__HAL_SPI_GET_FLAG(hmcp->hspi, SPI_FLAG_RXNE)){
+		uint32_t garbage = hmcp->hspi->Instance->DR;	// Flush the stale RxFIFO as a result of Transmit
+	}
+
 	// Use DMA to transmit and receive data from SPI
-	if(HAL_SPI_TransmitReceive_DMA(hmcp->hspi, hmcp->pTxBuf, buffer, REG_LEN + CTRL_LEN) == HAL_OK){
+	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
+	if(HAL_SPI_TransmitReceive_DMA(hmcp->hspi, hmcp->pTxBuf, buffer, readLen) == HAL_OK){
 		return pdTRUE;
 	} else {
 		return pdFALSE;
@@ -104,7 +127,7 @@ uint8_t mcp3909_SPI_WriteRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, u
 	(hmcp->pTxBuf)[2] = data[1];
 	(hmcp->pTxBuf)[3] = data[2];
 
-	// Use DMA to transmit data to SPI
+	// Synchronously transmit data to SPI
 	HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_RESET);
 	if(HAL_SPI_Transmit(hmcp->hspi, hmcp->pTxBuf, REG_LEN + CTRL_LEN, timeout) == HAL_OK){
 		HAL_GPIO_WritePin(MCP_CS_GPIO_Port,MCP_CS_Pin, GPIO_PIN_SET);
@@ -171,15 +194,22 @@ uint8_t mcp3909_SPI_ReadRegSync(MCP3909HandleTypeDef * hmcp, uint8_t address, ui
 }
 
 inline uint8_t mcp3909_SPI_ReadGroup(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
-	return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_GROUP);
+	if(address == MOD){
+		return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_GROUP, MOD_GROUP_LEN);
+	}
+	else {
+		return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_GROUP, CHN_GROUP_LEN);
+	}
+
 }
 
 inline uint8_t mcp3909_SPI_ReadType(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
-	return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_TYPE);
+
+	return mcp3909_SPI_ReadReg(hmcp, address, buffer, CTRL_LEN + MAX_CHANNEL_NUM * REG_LEN,READ_TYPE);
 }
 
 inline uint8_t mcp3909_SPI_ReadAll(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_t * buffer){
-	return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_ALL);
+	return mcp3909_SPI_ReadReg(hmcp, address, buffer, READ_ALL, REGS_NUM * REG_LEN);
 }
 
 // Initialization
@@ -283,8 +313,6 @@ uint8_t mcp3909_sleep(MCP3909HandleTypeDef * hmcp){
 	(hmcp->pTxBuf)[2] = ((hmcp->registers[CONFIG]) >> 8)  & 0xFF;
 	(hmcp->pTxBuf)[1] = ((hmcp->registers[CONFIG]) >> 16) & 0xFF;
 
-	// Disable GPIO DR Interrupt
-	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
 	// Write a single register configuration
 	return _mcp3909_SPI_WriteReg(hmcp, CONFIG);
 }
@@ -298,7 +326,7 @@ uint8_t mcp3909_wakeup(MCP3909HandleTypeDef * hmcp){
 	}
 
 	// Assemble register data
-	hmcp->registers[CONFIG] |= 0x0FFF;
+	hmcp->registers[CONFIG] &= 0xFFF;
 
 	// Load CONFIG register data to SPI Tx buffer
 	(hmcp->pTxBuf)[3] = (hmcp->registers[CONFIG]) & 0xFF;
@@ -325,7 +353,7 @@ inline uint8_t mcp3909_readChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelN
 #ifdef DEBUG
 	assert_param(channelNum < MAX_CHANNEL_NUM);
 #endif
-	return mcp3909_SPI_ReadType(hmcp, channelNum, buffer);
+	return mcp3909_SPI_ReadReg(hmcp, channelNum, buffer, READ_SINGLE, CTRL_LEN+REG_LEN);
 }
 
 inline void bytesToReg(uint8_t * byte, uint32_t * reg){
@@ -340,7 +368,7 @@ inline void regToBytes(uint32_t * reg, uint8_t * bytes){
 
 inline void mcp3909_parseChannelData(MCP3909HandleTypeDef * hmcp){
 	for(uint8_t i = CHANNEL_0; i < CHANNEL_0+MAX_CHANNEL_NUM; i++){
-		bytesToReg((hmcp->pRxBuf) + REG_LEN * i,((hmcp->registers) + i ));
+		bytesToReg((hmcp->pRxBuf) + REG_LEN * i+CTRL_LEN,((hmcp->registers) + i ));
 	}
 }
 

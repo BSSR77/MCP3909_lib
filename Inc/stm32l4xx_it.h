@@ -58,6 +58,11 @@ void SPI1_IRQHandler(void);
 void USART2_IRQHandler(void);
 void TIM6_DAC_IRQHandler(void);
 
+/* USER CODE BEGIN Interrupts 0 */
+void EXTI1_IRQHandler(void);
+/* USER CODE END Interrupts 0 */
+
+
 #ifdef __cplusplus
 }
 #endif
