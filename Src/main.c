@@ -111,7 +111,7 @@ void EM_Init(){
 	hmcp1.extCLK = 0;
 	hmcp1.extVREF = 0;
 	hmcp1.hspi = &hspi1;
-	hmcp1.osr = OSR_256;
+	hmcp1.osr = OSR_32;
 	hmcp1.prescale = PRESCALE_1;
 	hmcp1.readType = READ_TYPE;
 
@@ -489,7 +489,7 @@ void doApplication(void const * argument)
   for(;;)
   {
 	mcp3909_wakeup(&hmcp1);
-
+	osDelay(15);	// Add in delay to ensure data is ready
 	// DR Pin level detection in case the interrupt is disabled during critical area
 	if((!xSemaphoreTake(mcp3909_DRHandle, 0)) && HAL_GPIO_ReadPin(GPIO_DR_GPIO_Port,GPIO_DR_Pin)){
 		xSemaphoreTake(mcp3909_DRHandle, portMAX_DELAY);
