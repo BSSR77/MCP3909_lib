@@ -91,7 +91,7 @@ uint8_t mcp3909_SPI_ReadReg(MCP3909HandleTypeDef * hmcp, uint8_t address, uint8_
 	// | 0 | 1 | A4 | A3 | A2 | A1 | R |
 	(hmcp->pTxBuf)[0] = 0x41;    // Read control frame (0b01000001)
 	(hmcp->pTxBuf)[0] |= address << 1;
-
+	while(!__HAL_SPI_GET_FLAG(hmcp->hspi, SPI_FLAG_TXE));	// Block till Tx to complete
 	// Clear the TxBuffer of any previous residues
 	for(uint8_t i = CTRL_LEN; i < readLen + CTRL_LEN;i++){
 		(hmcp->pTxBuf)[i] = 0;
@@ -353,11 +353,11 @@ inline uint8_t mcp3909_readChannel(MCP3909HandleTypeDef * hmcp, uint8_t channelN
 #ifdef DEBUG
 	assert_param(channelNum < MAX_CHANNEL_NUM);
 #endif
-	return mcp3909_SPI_ReadReg(hmcp, channelNum, buffer, READ_SINGLE, CTRL_LEN+REG_LEN);
+	return mcp3909_SPI_ReadReg(hmcp, channelNum, buffer, CTRL_LEN+REG_LEN, READ_SINGLE);
 }
 
 inline void bytesToReg(uint8_t * byte, uint32_t * reg){
-	*reg =  (byte[2] | (byte[1] << 8) | (byte[0] << 16));
+	*reg =  ((byte[2] | (byte[1] << 8) | (byte[0] << 16))) & 0xFFFFFF;
 }
 
 inline void regToBytes(uint32_t * reg, uint8_t * bytes){
